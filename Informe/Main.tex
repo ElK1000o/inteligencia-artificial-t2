@@ -1,0 +1,143 @@
+\documentclass[letterpaper,12pt, twoside]{report}
+\usepackage[utf8]{inputenc}
+%\usepackage[english]{babel}
+\usepackage[spanish]{babel}
+\usepackage[T1]{fontenc}
+\usepackage{graphicx}
+\usepackage{epstopdf}
+\usepackage{amssymb}
+\usepackage{amsmath}
+\usepackage{anysize}
+\usepackage{float}
+\usepackage{braket}
+\usepackage{fancyhdr}
+\usepackage{color}
+%\usepackage{soul}
+\usepackage[normalem]{ulem}
+\usepackage{xcolor}
+%\usepackage{CJK}
+\usepackage{hyperref}
+\usepackage{placeins}
+\usepackage{tabularx}
+\usepackage{subcaption}
+\usepackage{apacite}
+%\usepackage{subfigure}
+\usepackage{booktabs}
+\usepackage{setspace}  
+\usepackage{algorithm2e}
+\usepackage{listings} 
+\usepackage{natbib}
+% \lstloadlanguages{python}
+%\lstset{language=python,tabsize=2}
+
+\lstdefinestyle{pythonstyle}{
+    language=Python,             % El lenguaje de programación
+    basicstyle=\ttfamily\footnotesize,  % Estilo básico del texto
+    keywordstyle=\color{blue},   % Color para palabras clave
+    commentstyle=\color{green},  % Color para comentarios
+    stringstyle=\color{red},     % Color para cadenas de texto
+    numbers=left,                % Número de línea a la izquierda
+    numberstyle=\tiny\color{gray}, % Estilo de los números de línea
+    stepnumber=1,                % Mostrar todos los números de línea
+    frame=single,                % Marco alrededor del código
+    breaklines=true,             % Permitir líneas largas en varias líneas
+    tabsize=4,                   % Tamaño de las tabulaciones
+    showspaces=false,            % No mostrar espacios
+    showstringspaces=false       % No mostrar espacios en cadenas
+}
+
+\definecolor{codegreen}{rgb}{0,0.6,0}
+\definecolor{codegray}{rgb}{0.5,0.5,0.5}
+\definecolor{codepurple}{rgb}{0.58,0,0.82}
+\definecolor{backcolour}{rgb}{0.95,0.95,0.92}
+
+\lstdefinestyle{mystyle}{
+    backgroundcolor=\color{white},   
+    commentstyle=\color{codegreen},
+    keywordstyle=\color{cyan},
+    numberstyle=\tiny\color{codegray},
+    stringstyle=\color{codepurple},
+    basicstyle=\ttfamily\footnotesize,
+    breakatwhitespace=false,         
+    breaklines=true,                 
+    captionpos=b,                    
+    keepspaces=true,                 
+    numbers=left,                    
+    numbersep=5pt,                  
+    showspaces=false,                
+    showstringspaces=false,
+    showtabs=false, 
+    language=python,                 
+    tabsize=1
+}
+
+\lstset{style=mystyle}
+
+\renewcommand{\baselinestretch}{1.5}
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue,
+    anchorcolor = blue,
+    filecolor=magenta,      
+    urlcolor=cyan,
+    citecolor = blue
+}
+
+ 
+%Agregar aquí los paquetes que hagan falta para su trabajo
+%\usepackage[paperwidth=21.59cm ,paperheight=27.94cm,top=2.5cm,right=2.5cm,bottom=2.5cm,left=2.5cm]{geometry}
+\usepackage[top=2.5cm,right=2.5cm,bottom=2.5cm,left=2.5cm]{geometry}
+%\marginsize{4cm}{2.5cm}{4cm}{2.5cm}
+\graphicspath{ {Figuras/} }
+\setlength{\headheight}{28pt}
+\pagestyle{fancy}
+\fancyhf{}
+
+
+\title{Inserción laboral migrante en Chile:\\brechas, segmentación y desigualdad} %Cambiar según el título de su tesis
+\author{Benjamín Infante\\Camilo Riquelme} %Cambiar según el nombre del autor
+
+\makeatletter 
+\let\newtitle\@title
+\let\newauthor\@author
+\makeatother
+
+\AtBeginDocument{\renewcommand{\contentsname}{Contenidos}}
+%\AtBeginDocument{\renewcommand{\listtablename}{List of table}}
+%\AtBeginDocument{\renewcommand{\tablename}{Table}}
+\raggedbottom  % evita Overfull/Underfull \vbox en paginas con poco contenido
+
+\begin{document}
+
+\pagenumbering{roman}
+\include{Portada/portada}  % Obligatorio
+
+\onehalfspace
+\pagenumbering{arabic}
+\cfoot{\thepage}
+\tableofcontents
+%\addcontentsline{toc}{chapter}{\textbf{Índice de figuras}} 
+%\listoffigures %Opcional: Comentar si se desea
+%\addcontentsline{toc}{chapter}{\textbf{Índice de tablas}} 
+%\listoftables %Opcional: Comentar si se desea
+\addcontentsline{toc}{chapter}
+{\textbf{Tabla de Contenidos}} 
+
+% ESTRUCTURA PRINCIPAL
+\include{Proyecto/proyecto}
+
+%\printbibliography
+
+\addcontentsline{toc}{chapter}{\textbf{Bibliografía}} 
+\lhead{Bibliografía}
+\renewcommand{\bibname}{Bibliografía}
+
+% \bibliographystyle{unsrt}
+% \begin{thebibliography}{9}
+
+\bibliographystyle{apacite}
+\bibliography{Referencias}
+
+% \end{thebibliography}
+
+\end{document}

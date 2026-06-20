@@ -1,0 +1,133 @@
+# ============================================================
+# MatEnergy-ML — Docker Compose
+# ============================================================
+
+networks:
+  matenergy_network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  artifacts_data:
+
+services:
+  # ----------------------------------------------------------
+  # PostgreSQL 16
+  # ----------------------------------------------------------
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    networks:
+      - matenergy_network
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/seeds:/docker-entrypoint-initdb.d:ro
+    # Port NOT exposed to host in production — only backend container can reach db
+    # Uncomment the line below only for local development/debugging:
+    # ports:
+    #   - "5432:5432"
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    # Run as the default postgres user (uid 70 in alpine)
+    # The application user connects via password, not as root
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+
+  # ----------------------------------------------------------
+  # Redis (optional — rate limiting & caching)
+  # ----------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    networks:
+      - matenergy_network
+    # No password in dev; set REDIS_PASSWORD env var and enable requirepass in production
+    command: redis-server --save 60 1 --loglevel warning
+    # Port NOT exposed to host — only backend container should reach Redis
+    # Uncomment only for local development/debugging:
+    # ports:
+    #   - "6379:6379"
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 128m
+
+  # ----------------------------------------------------------
+  # FastAPI Backend
+  # ----------------------------------------------------------
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    networks:
+      - matenergy_network
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:${POSTGRES_PORT}/${POSTGRES_DB}
+      REDIS_URL: redis://redis:6379/0
+      MATERIALS_PROJECT_API_KEY: XC57fd1v2J903mUZX2eKngeZuOq67Evr
+    volumes:
+      - artifacts_data:/app/artifacts
+      - ./data:/app/data:ro
+    ports:
+      - "8000:8000"
+    # Non-root user defined in Dockerfile (appuser)
+    user: "1001:1001"
+    healthcheck:
+      test: [ "CMD", "python", "-c", "import httpx; httpx.get('http://localhost:8000/health').raise_for_status()" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 2g
+
+  # ----------------------------------------------------------
+  # React / Vite Frontend
+  # ----------------------------------------------------------
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    networks:
+      - matenergy_network
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "3000:80"
+    healthcheck:
+      test: [ "CMD", "wget", "-qO-", "http://localhost:80/" ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 256m

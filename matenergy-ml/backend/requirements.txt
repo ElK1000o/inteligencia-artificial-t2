@@ -1,0 +1,57 @@
+# ============================================================
+# MatEnergy-ML Backend — Python Dependencies
+# ============================================================
+
+# --- Web Framework ---
+fastapi>=0.115.0
+uvicorn[standard]>=0.32.0
+
+# --- Data Validation ---
+pydantic[email]>=2.9.0
+pydantic-settings>=2.6.0
+
+# --- Database / ORM ---
+sqlalchemy>=2.0.36
+alembic>=1.14.0
+psycopg2-binary>=2.9.10
+
+# --- Authentication & Security ---
+PyJWT>=2.9.0
+argon2-cffi>=23.1.0
+python-multipart>=0.0.12
+
+# --- Materials Science / DFT ---
+pymatgen>=2024.11.13
+matminer>=0.9.3
+ase>=3.23.0
+
+# --- Machine Learning ---
+scikit-learn>=1.5.2
+numpy>=2.1.3
+pandas>=2.2.3
+scipy>=1.14.1
+joblib>=1.4.2
+shap>=0.46.0
+
+# --- HTTP Client (external APIs) ---
+httpx>=0.28.0
+
+# --- External scientific database clients ---
+# mp-api: Materials Project API v2 (requires MATERIALS_PROJECT_API_KEY env var)
+mp-api>=0.44.0
+# jarvis-tools: JARVIS-DFT database (optional, large download on first use)
+# jarvis-tools>=2023.12.1
+
+# --- Configuration ---
+python-dotenv>=1.0.1
+
+# --- Logging ---
+structlog>=24.4.0
+
+# --- Rate Limiting ---
+slowapi>=0.1.9
+
+# --- Testing ---
+pytest>=8.3.0
+pytest-asyncio>=0.24.0
+httpx[test]>=0.28.0
