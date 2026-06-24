@@ -1,5 +1,5 @@
 server {
-    listen 80;
+    listen ${PORT};
     server_name _;
 
     root /usr/share/nginx/html;
@@ -16,9 +16,12 @@ server {
         try_files $uri =404;
     }
 
-    # Proxy API requests to FastAPI backend
+    # Proxy API requests to the backend service. BACKEND_HOST/BACKEND_PORT
+    # default to the docker-compose service name (see Dockerfile ENV); on a
+    # platform without a "backend" DNS alias (e.g. Railway), override
+    # BACKEND_HOST with that service's private network hostname.
     location /api/ {
-        proxy_pass http://backend:8000;
+        proxy_pass http://${BACKEND_HOST}:${BACKEND_PORT};
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;

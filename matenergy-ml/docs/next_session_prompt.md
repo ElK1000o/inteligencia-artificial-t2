@@ -7,57 +7,52 @@ Copia y pega esto al inicio de la próxima conversación:
 Continuamos el proyecto MatEnergy-ML. Lee la memoria del proyecto antes de responder nada:
 `C:\Users\camri\.claude\projects\C--Users-camri-OneDrive-Documentos-GitHub-inteligencia-artificial-t2\memory\project_matenergy_ml.md`
 
-## Estado al cierre de la sesión 8 (2026-06-09) — post-documentación
+## Estado al cierre de la sesión 10 (2026-06-24)
 
-Todo está funcionando y desplegado. Los contenedores están corriendo con `docker compose up -d`.
-La plataforma está accesible en http://localhost:3000 (frontend) y http://localhost:8000 (backend API).
+### Lo que se completó en sesión 10
 
-### Lo que se completó en sesión 8
+1. **Verificación de pendientes**: docker stack confirmado corriendo (no
+   detenido como decía la memoria); bug real encontrado y arreglado en el
+   healthcheck del frontend (IPv6/localhost); `docs/user_manual.md`
+   actualizado con las etiquetas reales en español.
+2. **Hallazgo de seguridad crítico**: la API key de Materials Project
+   estaba hardcodeada en `docker-compose.yml`, comiteada en un repo
+   **público** de GitHub. Corregido hacia adelante (ahora viene de `.env`
+   vía `${MATERIALS_PROJECT_API_KEY:-}`) — **pero la key sigue sin rotar**,
+   sigue siendo válida y expuesta en el historial de git.
+3. **Página de Reportes conectada**: estaba completamente deshabilitada en
+   el frontend ("coming soon"). Se conectó a los 4 endpoints reales del
+   backend, y de paso se encontró y arregló un bug real de backend
+   (`AttributeError` en el reporte de tipo ranking).
+4. **`bootstrap.sh` / `bootstrap.ps1`** (nuevos, en `matenergy-ml/`): script
+   de un solo comando que deja la plataforma completamente funcional
+   (entorno, migraciones, seed, dataset demo, descriptores, 6 modelos
+   entrenados, modelos activados, ranking). Idempotente. Probado a fondo en
+   un entorno aislado antes de confiar en él.
+5. **Imágenes Docker hechas portables para la nube**: backend ahora corre
+   migraciones automáticamente al iniciar; nginx del frontend usa una
+   plantilla con variables de entorno en vez de `backend:8000` hardcodeado.
+   Cero cambio de comportamiento local — verificado reconstruyendo y
+   re-probando el stack real.
+6. **Guía de despliegue en Railway** escrita en
+   `docs/deployment_guide.md` (sección "Cloud Deployment (Railway)") — aún
+   NO ejecutada contra una cuenta Railway real.
 
-**Etapa 13 — DFT Job Queue Interface (completa)**
+### Pendientes para la próxima sesión
 
-Backend:
-- `BackgroundJob` ORM model + repository → mapea a tabla `background_jobs` existente
-- `LocalSimulationAdapter`: ASE/EMT para metales, aproximación determinista para el resto; corre en daemon thread
-- `SlurmAdapter` stub: genera POSCAR/INCAR/KPOINTS (pymatgen) + script SLURM reales
-- `DFTResultIngester`: almacena resultados DFT como `MaterialProperty` en DB
-- 6 endpoints: `POST /dft-jobs`, `GET /dft-jobs`, `GET /dft-jobs/{id}`, `DELETE /dft-jobs/{id}`, `POST /dft-jobs/{id}/ingest`, `GET /dft-jobs/{id}/inputs`
-- `ase>=3.23.0` añadido a `requirements.txt`
-
-Frontend:
-- `DftJobsPage.tsx`: formulario de submit + cola con auto-polling (5s) + panel de resultados expandible
-- Ítem "DFT Jobs" añadido al sidebar
-
-**Sesión 7 (mismo día):**
-- Narrativa SHAP automática (rule-based, sin IA generativa) en modal "Why?" de PredictionsPage
-
-**Documentación completada en la misma sesión 8 (post-implementación):**
-- `docs/api_documentation.md`: sección "DFT Jobs" completa con los 6 endpoints, esquemas de request/response, anotaciones de comportamiento
-- `docs/technical_architecture.md`: `infrastructure/simulation/` añadida a sección 2.4; grupo 8 "Background Jobs" añadido al schema overview; diagrama ASCII actualizado con rama de daemon thread
-- `docs/database_design.md`: sección 2.8 "Background Jobs Group" con tabla completa de columnas, esquema JSONB de payload/result, modelo de hilos
-- `docs/guia_completa_plataforma.md`: sección 4.10 "DFT Jobs" con tutorial completo; ciclo de workflow actualizado; glosario ampliado (ASE, EMT, VASP, SLURM, POSCAR, HPC)
-- `memory/project_matenergy_ml.md`: limpiada nota stale "Etapa 13 (stubs only)"; próximos pasos actualizados en orden
-
-### Regla crítica de Docker
-
-`docker compose restart` NO recarga código. Siempre reconstruir:
-```bash
-docker compose build backend && docker compose up -d backend
-docker compose build frontend && docker compose up -d frontend
-```
-
-### Próximos pasos (en orden de prioridad)
-
-1. **Comparador de materiales** ← SIGUIENTE
-   - Ruta: `/materials/compare`
-   - Seleccionar 2–3 materiales del ranking o tabla de materiales
-   - Mostrar propiedades, scores ML, análisis composicional y contribuciones SHAP lado a lado
-   - Útil para presentaciones académicas y decisiones de síntesis
-2. **Export PDF del ranking** — PDF descargable de candidatos priorizados para presentaciones académicas
-3. **Predicción de voltaje de cátodo** — requiere datos de estado litiado/delitiado o cálculo desde MP
-4. **Descriptores CGCNN** — usar estructura 3D de MP para superar limitación composicional
-5. **QE/GPAW workflow** — adapters adicionales para Etapa 13 (Quantum ESPRESSO, GPAW)
+1. **Rotar `MATERIALS_PROJECT_API_KEY`** en materialsproject.org — la key
+   actual está expuesta en el historial de git de un repo público. Sigue
+   funcionando porque no se ha rotado todavía.
+2. **Ejecutar el deploy real en Railway** siguiendo
+   `docs/deployment_guide.md` — crear el proyecto, los 4 servicios, y
+   correr el seed inicial vía `railway run`. Requiere que el usuario tenga
+   /cree una cuenta Railway.
+3. `Informe/` tiene cambios sin commitear desde la sesión 9 (contenido
+   verificado intacto, no corrompido por Benjamín) — preguntar si se quiere
+   commitear.
+4. Revisión visual página por página de `Informe/Main.pdf` — ofrecida en
+   sesión 9, nunca realizada.
 
 ---
 
-*Generado al cierre de sesión 8 (post-doc pass) — 2026-06-09*
+*Generado al cierre de sesión 10 — 2026-06-24*

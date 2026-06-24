@@ -55,7 +55,29 @@ The frontend is a React 18 / TypeScript SPA built with Vite, communicating with 
 
 ---
 
-## Quick Start (Docker Compose)
+## Quick Start (one-shot bootstrap)
+
+The fastest way to get a fully working instance — Docker stack, migrations,
+seeded admin user, demo dataset, descriptors, 6 trained baseline models,
+active models, and a candidate ranking — is the bootstrap script:
+
+```bash
+git clone <repo-url>
+cd inteligencia-artificial-t2/matenergy-ml
+
+./bootstrap.sh           # Linux / macOS / Git Bash / WSL
+# or, on native Windows PowerShell:
+.\bootstrap.ps1
+```
+
+No manual `.env` setup needed — it generates one with random secrets on
+first run. Safe to re-run (every step is idempotent); pass `--reset` /
+`-Reset` for a guaranteed clean slate, or `--skip-train` / `-SkipTrain` to
+skip model training for a faster boot. At the end it prints the login
+credentials and the URLs to open. See `docs/deployment_guide.md` for details
+and troubleshooting.
+
+### Manual setup (equivalent, step by step)
 
 ```bash
 # 1. Clone the repository
@@ -72,8 +94,12 @@ docker compose up --build -d
 # 4. Run database migrations
 docker compose exec backend alembic upgrade head
 
-# 5. (Optional) Seed with demo data
-docker compose exec backend python -m scripts.seed_db
+# 5. Seed roles/admin, demo data, descriptors, baseline models, ranking
+docker compose exec backend python scripts/seed_db.py
+docker compose exec backend python scripts/import_demo_data.py
+docker compose exec backend python scripts/generate_descriptors.py
+docker compose exec backend python scripts/train_baseline_models.py
+docker compose exec backend python scripts/generate_ranking.py
 ```
 
 Services will be available at:

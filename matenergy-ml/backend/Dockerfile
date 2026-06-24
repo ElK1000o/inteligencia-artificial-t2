@@ -31,6 +31,9 @@ COPY --chown=appuser:appgroup . .
 RUN mkdir -p /app/artifacts/models /app/artifacts/reports /app/data \
  && chown -R appuser:appgroup /app/artifacts /app/data
 
+# ---- Entrypoint (runs Alembic migrations before boot — idempotent) ----
+RUN chmod +x /app/docker-entrypoint.sh
+
 # ---- Switch to non-root user ----
 USER appuser
 
@@ -42,4 +45,8 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
     CMD python -c "import httpx; httpx.get('http://localhost:8000/health').raise_for_status()"
 
 # ---- Entry point ----
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]
+# Shell-form CMD so ${PORT} expands at container start: local docker-compose
+# never sets PORT (defaults to 8000, unchanged behavior); cloud platforms
+# like Railway that assign a dynamic port via $PORT are picked up correctly.
+ENTRYPOINT ["/app/docker-entrypoint.sh"]
+CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000} --workers 1"]

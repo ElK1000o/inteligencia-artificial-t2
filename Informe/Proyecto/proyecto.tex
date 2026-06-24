@@ -2,54 +2,218 @@
 
 \section{Descripción del Problema}
 
-% Contexto del problema
-% Necesidad operacional
-% Alcance del sistema
+El diseño de materiales para baterías de ion-litio enfrenta un cuello de
+botella combinatorio: solo en óxidos y fosfatos de metales de transición con
+litio, el espacio de composiciones posibles supera las 500\,000 combinaciones,
+de las cuales solo una fracción mínima ha sido calculada mediante Teoría del
+Funcional de la Densidad (DFT) \citep{urban2016computational}. Un cálculo DFT
+individual tarda horas o días \citep{jain2013materialsproject}, por lo que
+evaluar el espacio de candidatos exhaustivamente es inviable.
+
+El problema concreto: \emph{dado un conjunto de materiales con propiedades
+DFT ya calculadas para cátodos y ánodos de Li-ion (LiFePO\textsubscript{4}
+\citep{padhi1997phospho}, óxidos Li-Co-Mn-Ni), ¿cómo entrenar modelos de
+aprendizaje automático que aprendan la relación entre composición química y
+estabilidad termodinámica, prediciendo en microsegundos para composiciones
+nuevas sin requerir DFT por candidato?} La estabilidad de un óxido mixto
+depende de interacciones no lineales entre campo de ligandos, radio iónico y
+electronegatividad \citep{behler2007generalized}; no es un problema de
+fórmula cerrada, lo que justifica recurrir a ML supervisado entrenado sobre
+datos DFT reales \citep{ward2016general, meredig2014combinatorial}.
 
 \section{Requisitos y Criterios de Diseño}
 
-% Restricciones
-% Requisitos funcionales
-% Requisitos no funcionales
+\textbf{Funcionales:} validación de datasets CSV; generación de descriptores
+composicionales; entrenamiento/comparación de modelos de regresión y
+clasificación; predicción por lotes con detección de muestras fuera de
+dominio (OOD); \textit{ranking} de candidatos por aplicación (cátodo, ánodo,
+electrolito sólido).
+
+\textbf{No funcionales:} reproducibilidad (semilla fija, \textit{hash}
+SHA-256 de datasets/artefactos); seguridad (autenticación, RBAC, validación
+estricta de archivos); trazabilidad (auditoría de cada predicción); honestidad
+científica (nunca calibrar una predicción sin justificarlo; advertir
+predicciones fuera de dominio).
+
+\textbf{Restricción de seguridad:} \texttt{PyJWT} exclusivo para tokens, \textit{hashing} de contraseñas con
+Argon2, y prohibición de ejecutar contenido subido por el usuario.
 
 \section{Diseño de la Solución}
 
 \subsection{Arquitectura General}
 
-% Flujo de datos
-% Componentes principales
+Arquitectura limpia por capas: el dominio no depende de infraestructura, la
+aplicación solo depende del dominio. Flujo de una predicción:
+\texttt{API (FastAPI) → Caso de uso → Servicio de dominio → Repositorio →
+PostgreSQL / artefacto \texttt{.joblib}}. Esto permite probar la lógica
+científica sin base de datos real y sustituir el motor de ML sin tocar las
+rutas HTTP.
 
 \subsection{Selección de Variables y Datos}
 
-% Variables utilizadas
-% Justificación
+Los datos provienen de Materials Project \citep{jain2013materialsproject},
+calculados con el funcional PBE-GGA \citep{perdew1996generalized}. El
+dataset demo contiene 154 materiales Li-ion (151 válidos tras validación).
+
+\begin{table}[H]
+\centering
+\small
+\caption{Variables objetivo predichas por el sistema.}
+\label{tab:variables}
+\begin{tabularx}{\textwidth}{l l X}
+\toprule
+\textbf{Variable} & \textbf{Unidad} & \textbf{Significado físico} \\
+\midrule
+\texttt{energy\_above\_hull} & eV/átomo & Estabilidad relativa al casco convexo \\
+\texttt{formation\_energy\_per\_atom} & eV/átomo & Energía liberada al formarse \\
+\texttt{band\_gap} & eV & Carácter conductor/semiconductor/aislante \\
+\texttt{is\_stable} & booleano & EAH $\leq 0.05$ eV/átomo \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+Cada fórmula se transforma en $\sim$57 descriptores composicionales vía
+\texttt{pymatgen} (esquema Magpie \citep{ward2016general}, análogo a
+\texttt{matminer} \citep{ward2018matminer}): estadísticos de propiedades
+elementales ponderados por fracción atómica, más fracciones de elementos
+relevantes para baterías (Li, Fe, Mn, Co, Ni, O, P, S).
 
 \subsection{Decisiones de Ingeniería}
 
-% Elección del modelo
-% Alternativas evaluadas
-% Razones técnicas
+Se eligió \texttt{scikit-learn} sobre redes de grafos (CGCNN
+\citep{xie2018cgcnn}, MEGNet \citep{chen2019megnet}) porque éstas requieren
+estructura cristalina 3D no disponible para composiciones hipotéticas, y
+datasets mucho mayores a 151 materiales (limitación discutida en
+\ref{sec:limitaciones}). Se comparan cuatro modelos —\textit{Ridge},
+\textit{Random Forest}, \textit{Gradient Boosting} y un clasificador
+\textit{Random Forest}— siguiendo la metodología de \textit{benchmarking}
+de \citet{dunn2020matbench}, en vez de comprometerse con uno solo. Toda
+predicción no calibrada se marca como tal (\texttt{is\_calibrated=False}).
 
 \section{Implementación}
 
 \subsection{Preprocesamiento de Datos}
 
+Cada CSV se valida antes de tocar la base de datos: codificación UTF-8,
+tamaño máximo, columna \texttt{formula}, rango físico por propiedad, y
+\textit{hash} SHA-256 para duplicados. Las filas rechazadas se registran
+con su motivo, nunca se descartan en silencio. Las fórmulas se parsean con
+\texttt{pymatgen.Composition}; una fórmula inválida se rechaza antes del
+pipeline de descriptores.
+
 \subsection{Entrenamiento del Modelo}
+
+El entrenamiento envuelve el estimador en un \textit{pipeline} con
+imputación de medianas y escalado robusto, con semilla fija
+(\texttt{FIXED\_RANDOM\_SEED=42}) para reproducibilidad bit-a-bit:
+
+\begin{lstlisting}[language=Python, caption={Pipeline de entrenamiento (adaptado de \texttt{infrastructure/ml/trainers.py})}, label={lst:training}]
+def train(self, model_type, task_type, X_train, y_train,
+          hyperparams=None, scale=True):
+    # Merge model-specific defaults with caller overrides
+    defaults = (REGRESSOR_DEFAULTS if task_type == TaskType.REGRESSION
+                else CLASSIFIER_DEFAULTS).get(model_type, {})
+    params = {**defaults, **(hyperparams or {})}
+    estimator = _build_estimator(model_type, task_type, params)
+    preprocessor = build_sklearn_pipeline(task_type.value, scale=scale)
+
+    # Imputer + scaler + estimator as a single fitted object
+    full_pipeline = Pipeline([("preprocessor", preprocessor),
+                               ("model", estimator)])
+    full_pipeline.fit(X_train, y_train)
+    return full_pipeline
+\end{lstlisting}
 
 \subsection{Validaciones y Manejo de Errores}
 
-% Código comentado en inglés
+Todo artefacto \texttt{.joblib} se verifica por \textit{hash} SHA-256 antes
+de cargarse en memoria (\texttt{load\_artifact}), evitando ejecutar un
+artefacto alterado; un \textit{hash} no coincidente lanza
+\texttt{ArtifactIntegrityError} sin cargar el archivo. El sistema define
+además una jerarquía de excepciones tipadas (\texttt{InvalidChemicalFormu\-laError},
+\texttt{InsufficientDataError}, \texttt{TargetLeakageError}) que separan el
+mensaje seguro mostrado al usuario del detalle técnico registrado solo en
+los \textit{logs} del servidor, evitando filtrar trazas internas.
+
+\subsection{Módulo de Trabajos DFT (Etapa 13)}
+
+La plataforma incluye además un módulo operativo de orquestación de cálculos
+DFT (\texttt{/api/v1/dft-jobs}: envío, listado, estado, cancelación, ingesta
+de resultados y descarga de \textit{inputs}), con seguimiento de cada
+trabajo en PostgreSQL y una página dedicada en el \textit{frontend}
+(\textit{Trabajos DFT}). Un adaptador local ejecuta cálculos reales vía
+ASE/EMT para sistemas metálicos (Al, Cu, Ag, Au, Ni, Pd, Pt, Zn, Cd, Hg) y
+recurre a una aproximación determinista —marcada explícitamente como no
+equivalente a DFT real— para el resto; un adaptador SLURM genera archivos
+VASP (POSCAR/INCAR/KPOINTS vía \texttt{pymatgen}) y \textit{scripts}
+\texttt{sbatch} reales, sin conexión aún a un clúster HPC. Esta capa está
+disponible en la plataforma, pero los resultados de la sección siguiente
+provienen exclusivamente de datos DFT precalculados de Materials Project,
+no de cálculos ejecutados por este módulo.
 
 \section{Evaluación y Resultados}
 
 \subsection{Métricas de Desempeño}
 
+\begin{table}[H]
+\centering
+\small
+\caption{Desempeño real de los modelos activos sobre el conjunto de prueba (151 materiales, \textit{split} 80/20, semilla fija).}
+\label{tab:resultados}
+\begin{tabularx}{\textwidth}{l l X}
+\toprule
+\textbf{Objetivo / Modelo} & \textbf{Métrica de prueba} & \textbf{Valor} \\
+\midrule
+EAH (Gradient Boosting) & MAE / RMSE / $R^2$ & 0.0186 / 0.0293 eV/at. / 0.155 \\
+$E_f$ por átomo (Random Forest) & MAE / RMSE / $R^2$ & 0.210 / 0.301 eV/at. / 0.869 \\
+\texttt{is\_stable} (RF, clasificación) & F1-macro / ROC-AUC & 0.583 / 0.692 \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
 \subsection{Análisis de Resultados}
 
+La energía de formación se predice con alta precisión ($R^2=0.869$),
+consistente con \citet{meredig2014combinatorial}. \texttt{energy\_above\_hull}
+—la propiedad de estabilidad más relevante para ciclado— es más difícil
+($R^2=0.155$): es relativa al casco convexo completo del sistema químico, no
+una propiedad intrínseca, y con 151 muestras el modelo generaliza pobremente
+entre familias químicas. El clasificador binario (F1-macro$=0.583$) es más
+robusto que la regresión continua equivalente al colapsar el problema a una
+decisión binaria con \texttt{class\_weight="balanced"}. La validación
+cruzada (MAE$_{cv}=0.0166$) confirma que estas cifras son estables, no
+producto de un \textit{split} afortunado.
+
 \subsection{Limitaciones del Sistema}
+\label{sec:limitaciones}
+
+\textbf{(1) Tamaño del dataset:} 151 materiales es insuficiente para
+generalizar fuera de las familias observadas (Li-Fe-O, Li-Mn-O, Li-Co-O); el
+sistema marca estas predicciones como OOD en vez de reportarlas con falsa
+confianza. \textbf{(2) Descriptores composicionales:} dos polimorfos de la
+misma fórmula (p.\,ej.\ TiO\textsubscript{2} rutilo vs.\ anatasa) son
+indistinguibles sin información estructural 3D —lo que CGCNN
+\citep{xie2018cgcnn} resuelve a costa de requerir estructura conocida.
+\textbf{(3) Brecha estabilidad–desempeño:} el sistema predice si un material
+\emph{existe y es estable} (precondición necesaria), no su voltaje,
+capacidad específica o conductividad iónica \citep{urban2016computational,
+bachman2016inorganic}, que requieren simulaciones adicionales no incluidas
+en el dataset. Además, los datos heredan el error sistemático del funcional
+PBE \citep{perdew1996generalized}, y EAH$=0$ no garantiza sintetizabilidad
+experimental \citep{sun2016thermodynamic, aykol2018thermodynamic}.
 
 \section{Conclusiones}
 
-% Logro de objetivos
-% Desempeño obtenido
-% Trabajo futuro
+El sistema demuestra que un \textit{pipeline} clásico de ML —sin redes
+generativas ni de grafos— sustituye un cálculo DFT (microsegundos vs.\
+horas) para cribar estabilidad termodinámica de candidatos a cátodos y
+ánodos de ion-litio, cumpliendo el objetivo de reducir el costo de explorar
+el espacio composicional. El desempeño —alto para energía de formación,
+moderado para estabilidad— es honesto dado el tamaño del dataset, y se
+comunica explícitamente en vez de ocultarse. La Etapa 13 —el módulo de orquestación de
+trabajos DFT descrito en Implementación— ya está operativa; el trabajo
+futuro es conectarla a un clúster HPC real, incorporar sus resultados al
+dataset de entrenamiento, y sumar descriptores estructurales o redes de
+grafos cristalinos (CGCNN, ALIGNN) cuando exista información 3D suficiente,
+cerrando progresivamente la brecha hacia la predicción directa de
+desempeño de batería y no solo de estabilidad termodinámica.

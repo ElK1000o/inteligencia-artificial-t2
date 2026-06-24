@@ -151,7 +151,7 @@ class GenerateReportUseCase:
                 "reasoning_summary": i.reasoning_summary,
                 "stability_score": i.stability_score,
                 "uncertainty_penalty": i.uncertainty_penalty,
-                "is_out_of_domain": i.is_out_of_domain,
+                "is_out_of_domain": bool(i.out_of_domain_penalty),
             }
             for i in self.db.execute(items_stmt).scalars().all()
         ]

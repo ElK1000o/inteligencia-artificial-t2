@@ -9,13 +9,23 @@
 
 ### 1.2 First Launch
 
+The simplest path is the bootstrap script, which runs every step below
+automatically (and is idempotent — safe to re-run):
+
+```bash
+cd matenergy-ml/
+./bootstrap.sh        # or .\bootstrap.ps1 on native Windows PowerShell
+```
+
+Equivalent manual steps, if you prefer to run them yourself:
+
 ```bash
 # 1. Copy environment template
 cp .env.example .env
 # Edit .env: set POSTGRES_PASSWORD, SECRET_KEY, JWT_SECRET_KEY
 
 # 2. Start all services
-docker compose up -d
+docker compose up -d --build
 
 # 3. Run database migrations
 docker compose exec backend alembic upgrade head
@@ -32,7 +42,10 @@ docker compose exec backend python scripts/generate_descriptors.py
 # 7. Train baseline models
 docker compose exec backend python scripts/train_baseline_models.py
 
-# 8. Open the application
+# 8. Generate a candidate ranking
+docker compose exec backend python scripts/generate_ranking.py
+
+# 9. Open the application
 # Frontend: http://localhost:3000
 # API docs: http://localhost:8000/docs (development only)
 ```
@@ -40,10 +53,11 @@ docker compose exec backend python scripts/train_baseline_models.py
 ### 1.3 Default Login
 ```
 Email:    admin@matenergy.local
-Password: (set during seed_db.py execution)
+Password: (printed by bootstrap.sh/.ps1, or set via ADMIN_PASSWORD env var
+           before running seed_db.py manually)
 ```
 
-> **WARNING**: Change the admin password immediately after first login.
+> **WARNING**: Change the admin password immediately after first login if this instance is reachable by anyone other than you.
 
 ---
 
@@ -52,12 +66,12 @@ Password: (set during seed_db.py execution)
 ### 2.1 Workflow A: Load and Validate a Dataset
 
 1. Navigate to **Datasets** in the sidebar.
-2. Click **Upload Dataset**.
+2. Click **Subir Dataset** ("Upload Dataset").
 3. Select a CSV file (max 50 MB).
 4. Enter a name and optional description.
-5. Click **Upload**.
-6. Once uploaded, click the **View** button next to the dataset.
-7. The Validation Report page shows:
+5. Click **Subir** ("Upload").
+6. Once uploaded, click the **Ver** ("View") button next to the dataset.
+7. The Validation Report page ("Reporte de Validación") shows:
    - Total / valid / rejected row counts
    - Row distribution chart
    - Specific validation errors per row
@@ -84,7 +98,7 @@ Li2O,0.000,-1.991,4.91,True
 3. Choose descriptor type:
    - **Compositional**: Uses chemical formula only (always available).
    - **Compositional + Structural**: Also uses crystal structure data (requires `space_group`, `lattice_a/b/c` columns).
-4. Click **Generate Descriptors**.
+4. Click **Generar Descriptores** ("Generate Descriptors").
 5. Wait for the job to complete (typically < 30 seconds for 200 materials).
 6. The descriptor set will appear with the number of features computed.
 
@@ -95,17 +109,17 @@ Li2O,0.000,-1.991,4.91,True
 ### 2.3 Workflow C: Train a Model
 
 1. Navigate to **Models** in the sidebar.
-2. Click **Train New Model**.
+2. Click **Entrenar Modelo Nuevo** ("Train New Model").
 3. Select:
    - **Model Type**: `random_forest_regressor` recommended for first experiments.
    - **Task Type**: `regression` for continuous properties; `classification` for `is_stable`.
    - **Target Property**: e.g., `energy_above_hull`.
    - **Dataset**: The dataset you validated.
    - **Descriptor Set**: The descriptor set you generated.
-4. Click **Start Training**.
+4. Click **Iniciar Entrenamiento** ("Start Training").
 5. The model status will update to `completed` when done.
-6. Click **Metrics** to view training/test MAE, R², and other performance metrics.
-7. Click **Activate** to mark the model as the active predictor for its target property.
+6. Click **Métricas** ("Metrics") to view training/test MAE, R², and other performance metrics.
+7. Click **Activar** ("Activate") to mark the model as the active predictor for its target property.
 
 > **Scientific note**: Random Forest cannot extrapolate beyond the training range. Predictions for materials outside the training chemical space should be treated with caution.
 
@@ -117,7 +131,7 @@ Li2O,0.000,-1.991,4.91,True
 
 1. Navigate to **Predictions** in the sidebar.
 2. Select the active model and target dataset.
-3. Click **Run Batch Prediction**.
+3. Click **Ejecutar Predicciones** ("Run Predictions").
 4. Results will show:
    - Predicted value (regression) or class label (classification)
    - Out-of-domain (OOD) flag — highlighted in red if the material is outside the training domain
@@ -128,18 +142,18 @@ Li2O,0.000,-1.991,4.91,True
 ### 2.5 Workflow E: Generate Candidate Rankings
 
 1. Navigate to **Ranking** in the sidebar.
-2. Click **Create Ranking**.
+2. Click **Crear Ranking** ("Create Ranking").
 3. Configure:
    - **Name**: A descriptive label for this ranking run.
    - **Application Target**: e.g., `li_ion_batteries`, `solid_electrolytes`.
    - **Dataset**: Dataset to rank.
-4. Click **Generate**.
+4. Click **Crear Ranking** again in the modal to submit.
 5. Results show each material with:
    - **Rank position** (1 = best)
    - **Candidate Score** (0–1)
    - **Priority Label**: High / Moderate / Low / Not Recommended / Insufficient Evidence
    - **Reasoning**: Rule-based explanation (never AI-generated)
-6. Click **Export CSV** to download the ranking.
+6. An **Export CSV** action is planned but not yet wired up in the UI — see `docs/limitations.md`-style caveat: as of this writing the **Reportes** page is a disabled placeholder ("coming soon"), even though the backend `/reports/generate` endpoint is implemented. Use the API directly (`GET /rankings/{ranking_id}/export`) if you need the CSV today.
 
 > **Scientific note**: The ranking score combines multiple factors. High-priority candidates still require experimental validation. See `docs/limitations.md` for full caveats.
 
@@ -147,13 +161,15 @@ Li2O,0.000,-1.991,4.91,True
 
 ### 2.6 Workflow F: Export Reports
 
-1. Navigate to **Reports** in the sidebar.
-2. Click **Generate Report** and select report type:
-   - **Ranking Report** (CSV): Full candidate table with scores
-   - **Model Metrics** (Markdown): Performance table for a model
-   - **Dataset Summary** (Markdown): Dataset statistics and validation info
-   - **Platform Summary** (Markdown): Aggregate counts
-3. Download the generated file.
+> **Known gap (not yet wired up)**: the **Reportes** page in the sidebar currently
+> renders four report-type cards (Validation Report, Model Performance Report,
+> Candidate Ranking Report, Audit Log Export) but every "Exportar" button is
+> disabled with a "coming soon" banner. The backend already implements report
+> generation (`POST /api/v1/reports/generate`, `GET /api/v1/reports`,
+> `GET /api/v1/reports/{filename}` in `report_routes.py`) — the frontend was
+> never connected to it. Until this is wired up, use the API directly (see
+> `docs/api_documentation.md`) or `GET /rankings/{ranking_id}/export` for a
+> ranking CSV.
 
 ---
 

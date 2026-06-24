@@ -87,7 +87,7 @@ services:
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:${POSTGRES_PORT}/${POSTGRES_DB}
       REDIS_URL: redis://redis:6379/0
-      MATERIALS_PROJECT_API_KEY: XC57fd1v2J903mUZX2eKngeZuOq67Evr
+      MATERIALS_PROJECT_API_KEY: ${MATERIALS_PROJECT_API_KEY:-}
     volumes:
       - artifacts_data:/app/artifacts
       - ./data:/app/data:ro
@@ -123,7 +123,7 @@ services:
     ports:
       - "3000:80"
     healthcheck:
-      test: [ "CMD", "wget", "-qO-", "http://localhost:80/" ]
+      test: [ "CMD", "wget", "-qO-", "http://127.0.0.1:80/" ]
       interval: 30s
       timeout: 5s
       retries: 3

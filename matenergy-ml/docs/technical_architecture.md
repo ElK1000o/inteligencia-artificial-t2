@@ -164,7 +164,7 @@ The frontend is a TypeScript React 18 SPA built with Vite 6. Key architectural d
 - **Charts**: Recharts for metric visualisations and descriptor distribution plots
 - **Styling**: Tailwind CSS 3.4 with utility-first approach
 
-The frontend is served by Nginx in production (see `frontend/nginx.conf`), which also handles SPA fallback routing (`try_files $uri $uri/ /index.html`).
+The frontend is served by Nginx in production (see `frontend/nginx.conf.template`), which also handles SPA fallback routing (`try_files $uri $uri/ /index.html`). The config is an envsubst template (processed by the base nginx image's entrypoint at container start) so `PORT`, `BACKEND_HOST`, and `BACKEND_PORT` can be overridden per deployment target without rebuilding the image — see `docs/deployment_guide.md` for the Railway deployment case, where `BACKEND_HOST` is set to the backend service's private network hostname instead of the docker-compose service name `backend`.
 
 ---
 

@@ -1,31 +1,37 @@
 \rhead{}
 \lhead{}
 \renewcommand{\headrulewidth}{0pt}
-\addcontentsline{toc}{chapter}{\textbf{Abstract}} 
+\addcontentsline{toc}{chapter}{\textbf{Resumen}}
 \begin{center}
-    \Large
-    \textbf{\newtitle}
-    
-    \large
-    \vspace{0.4cm}
-    \newauthor
-    \vspace{0.9cm}
-    
-    \textbf{Abstract}\\
-\end{center}
-
-
-
-\newpage
-\begin{center}
-    \Large
-    \textbf{}
-    
-    \large
-    \vspace{0.4cm}
-    \newauthor
-    \vspace{0.9cm}
-    
+ 
     \textbf{Resumen}\\
 \end{center}
 
+\noindent
+MatEnergy-ML es una plataforma computacional que aplica aprendizaje automático
+clásico sobre datos de Teoría del Funcional de la Densidad (DFT) para acelerar
+el cribado de materiales candidatos para cátodos y ánodos de baterías de
+ion-litio. En lugar de calcular propiedades cuánticas costosas para cada
+composición candidata, el sistema entrena modelos de regresión (\textit{Ridge
+Regression}, \textit{Random Forest}, \textit{Gradient Boosting}) y clasificación
+(\textit{Random Forest}) sobre un conjunto de 151 materiales reales extraídos de
+Materials Project, prediciendo energía sobre el casco convexo, energía de
+formación, \textit{band gap} y estabilidad termodinámica binaria a partir de
+descriptores composicionales calculados con \texttt{pymatgen}. La plataforma
+implementa una arquitectura limpia por capas (FastAPI, PostgreSQL, React), con
+autenticación JWT, control de acceso basado en roles, verificación de
+integridad de artefactos mediante SHA-256, y un sistema de \textit{ranking}
+transparente y no generativo para priorizar candidatos según su relevancia
+para aplicaciones de almacenamiento de energía. Los resultados muestran que
+\textit{Gradient Boosting} alcanza un MAE de prueba de 0.0186~eV/átomo para
+energía sobre el casco convexo, mientras que \textit{Random Forest} predice la
+energía de formación con $R^2=0.869$; el clasificador de estabilidad alcanza
+F1-macro$=0.583$ sobre el conjunto de prueba. Se discuten las limitaciones del
+tamaño del conjunto de datos y del alcance puramente composicional de los
+descriptores, así como la diferencia entre estabilidad termodinámica y
+desempeño electroquímico real de una batería.
+
+\vspace{0.6cm}
+\noindent
+\textbf{Palabras clave:} aprendizaje automático, ciencia de materiales
+computacional, baterías de ion-litio, DFT, cribado de materiales.
